@@ -24,13 +24,19 @@ module Embiggen
       check_redirects(redirects)
 
       location = head_location(request_options)
-      check_location(location)
+
+      if all_shortened?
+        return uri unless location
+      else
+        check_location(location)
+      end
 
       URI.new(location).
         expand!(request_options.merge(:redirects => redirects - 1))
     end
 
     def shortened?
+      return true if all_shortened?
       Configuration.shorteners.any? { |domain| uri.host =~ /\b#{domain}\z/i }
     end
 
@@ -64,6 +70,10 @@ module Embiggen
       http.use_ssl = true if uri.scheme == 'https'
 
       http
+    end
+
+    def all_shortened?
+      Configuration.shorteners == :all
     end
   end
 

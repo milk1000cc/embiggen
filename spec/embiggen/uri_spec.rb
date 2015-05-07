@@ -137,6 +137,25 @@ module Embiggen
         Configuration.redirects = 5
         Configuration.shorteners.delete('altmetric.it')
       end
+
+      context 'the shorteners configuration is :all' do
+        before do
+          @original_shorteners = Configuration.shorteners.dup
+          Configuration.shorteners = :all
+        end
+
+        it 'try to expand all URIs' do
+          stub_redirect('http://altmetric.it', 'http://www.altmetric.com')
+          stub_request(:head, 'http://www.altmetric.com').to_return(:status => 200)
+          uri = described_class.new(URI('http://altmetric.it'))
+
+          expect(uri.expand).to eq(URI('http://www.altmetric.com'))
+        end
+
+        after do
+          Configuration.shorteners = @original_shorteners
+        end
+      end
     end
 
     describe '#expand!' do
@@ -184,6 +203,24 @@ module Embiggen
 
         expect { uri.expand! }.to raise_error(::Errno::ECONNRESET)
       end
+
+      context 'the shorteners configuration is :all' do
+        before do
+          @original_shorteners = Configuration.shorteners.dup
+          Configuration.shorteners = :all
+        end
+
+        it 'does not raise an error if a shortened URI does not redirect' do
+          stub_request(:head, 'http://bit.ly/bad').to_return(:status => 500)
+          uri = described_class.new(URI('http://bit.ly/bad'))
+
+          expect(uri.expand!).to eq(URI('http://bit.ly/bad'))
+        end
+
+        after do
+          Configuration.shorteners = @original_shorteners
+        end
+      end
     end
 
     describe '#uri' do
@@ -224,6 +261,29 @@ module Embiggen
         uri = described_class.new('http://notbit.ly/1ciyUPh')
 
         expect(uri).to_not be_shortened
+      end
+
+      context 'the shorteners configuration is :all' do
+        before do
+          @original_shorteners = Configuration.shorteners.dup
+          Configuration.shorteners = :all
+        end
+
+        it 'returns true if the link has been shortened' do
+          uri = described_class.new('http://bit.ly/1ciyUPh')
+
+          expect(uri).to be_shortened
+        end
+
+        it 'returns true if the link has not been shortened' do
+          uri = described_class.new('http://www.altmetric.com')
+
+          expect(uri).to be_shortened
+        end
+
+        after do
+          Configuration.shorteners = @original_shorteners
+        end
       end
     end
 
